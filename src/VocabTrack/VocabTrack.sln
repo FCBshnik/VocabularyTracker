@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.34804.81
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VocabTrack.Cli", "VocabTrack.Cli\VocabTrack.Cli.csproj", "{EC39C334-026F-4852-8C40-18B36CD8FC11}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VocabTrack.Core", "VocabTrack.Core\VocabTrack.Core.csproj", "{5F3EFAA2-F8EF-4726-9444-0A03336821EA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{EC39C334-026F-4852-8C40-18B36CD8FC11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EC39C334-026F-4852-8C40-18B36CD8FC11}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EC39C334-026F-4852-8C40-18B36CD8FC11}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EC39C334-026F-4852-8C40-18B36CD8FC11}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5F3EFAA2-F8EF-4726-9444-0A03336821EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5F3EFAA2-F8EF-4726-9444-0A03336821EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5F3EFAA2-F8EF-4726-9444-0A03336821EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5F3EFAA2-F8EF-4726-9444-0A03336821EA}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6A35A383-A35B-4ACF-A33C-CDCB3C9F7C3F}
+	EndGlobalSection
+EndGlobal
