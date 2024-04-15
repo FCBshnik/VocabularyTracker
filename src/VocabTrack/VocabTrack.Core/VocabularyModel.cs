@@ -22,13 +22,13 @@ namespace VocabTrack.Core
         {
             public bool ContainsWord(string word)
             {
-                var symbols = word.ToList().Select(s => s.ToString()).ToList();
+                var symbols = word.ToLowerInvariant().ToList().Select(s => s.ToString()).ToList();
                 return ContainsWord(symbols, 0);
             }
 
             public void Add(string word)
             {
-                var symbols = word.ToList().Select(s => s.ToString()).ToList();
+                var symbols = word.ToLowerInvariant().ToList().Select(s => s.ToString()).ToList();
                 Add(symbols, 0);
             }
 
@@ -37,11 +37,24 @@ namespace VocabTrack.Core
                 if (symbols.Count == index)
                     return true;
 
-                var symbol = symbols[index];
-                if (!ContainsKey(symbol))
-                    return false;
+                var isLast = index == symbols.Count - 1;
+                var lower = symbols[index];
+                var upper = lower.ToUpperInvariant();
 
-                return this[symbol].ContainsWord(symbols, index + 1);
+                if (!TryGetValue(upper, out var child))
+                {
+                    if (!TryGetValue(lower, out child))
+                    {
+                        return false;
+                    }
+                    else
+                    {
+                        if (isLast)
+                            return false;
+                    }
+                }
+
+                return child.ContainsWord(symbols, index + 1);
             }
 
             private void Add(List<string> symbols, int index)
@@ -49,14 +62,28 @@ namespace VocabTrack.Core
                 if (symbols.Count == index)
                     return;
 
-                var symbol = symbols[index];
-                if (!TryGetValue(symbol, out var node))
+                var isLast = index == symbols.Count - 1;
+                var lower = symbols[index];
+                var upper = lower.ToUpperInvariant();
+
+                if (!TryGetValue(upper, out var child))
                 {
-                    node = new NodeModel();
-                    Add(symbol, node);
+                    if (!TryGetValue(lower, out child))
+                    {
+                        child = new NodeModel();
+                        Add(isLast ? upper : lower, child);
+                    }
+                    else
+                    {
+                        if (isLast)
+                        {
+                            Remove(lower);
+                            Add(upper, child);
+                        }
+                    }
                 }
 
-                node.Add(symbols, index + 1);
+                child.Add(symbols, index + 1);
             }
         }
     }
