@@ -1,4 +1,6 @@
-﻿using VocabTrack.Core;
+﻿using Sharprompt;
+using System.ComponentModel.DataAnnotations;
+using VocabTrack.Core;
 
 namespace VocabTrack.Cli;
 
@@ -6,51 +8,109 @@ public static class Program
 {
     public static void Main()
     {
-        Console.OutputEncoding = System.Text.Encoding.Unicode;
-
-        var subsParser = new SubsParser();
-        var lines = subsParser.Parse(new FileInfo(@"C:\@yan\share\video\The.Tourist.S01E05.WEB-DLRip.RGzsRutracker.[Wentworth_Miller].srt"));
-
-        Console.WriteLine($"lines:");
-        foreach (var line in lines.Take(10))
-        {
-            Console.WriteLine(line);
-        }
-
         var vocab = VocabularyStore.Load();
 
+        while (true)
+        {
+            var mode = Prompt.Select<Mode>("Select mode");
+            if (mode == Mode.AddSubs)
+                AddNewWords(vocab);
+            else if (mode == Mode.ListTodo)
+                Console.WriteLine(string.Join(Environment.NewLine, vocab.Todo.ListWords()));
+            else if (mode == Mode.ManageTodo)
+                ManageTodo(vocab);
+            else
+                break;
+        }
+
+        VocabularyStore.Save(vocab);
+    }
+
+    private static void ManageTodo(Vocabulary vocab)
+    {
+        foreach (var word in vocab.Todo.ListWords())
+        {
+            var wordAction = Prompt.Select<TodoWordAction>($"Select action for '{word}'", defaultValue: TodoWordAction.Skip);
+            if (wordAction == TodoWordAction.Learn)
+            {
+                vocab.Todo.RemoveWord(word);
+                vocab.Learned.AddWord(word);
+            }
+            if (wordAction == TodoWordAction.Break)
+                return;
+        }
+    }
+
+    private static void AddNewWords(Vocabulary vocab)
+    {
+        var srtFiles = new DirectoryInfo("./").EnumerateFiles("*.srt", SearchOption.AllDirectories).ToList();
+        var srtFile = Prompt.Select("Select subtitles file from app directory", srtFiles, textSelector: f => f.Name);
+        if (!srtFile.Exists)
+        {
+            Console.WriteLine($"File '{srtFile.FullName}' does not exist");
+            return;
+        }
+
+        var subsParser = new SubsParser();
+        var lines = subsParser.Parse(srtFile);
         var words = new WordsExtractor().ExtractWords(lines);
-        Console.WriteLine($"\r\nwords {words.Count}:");
-        foreach (var pair in words.Where(w => !vocab.ContainsWord(w.Key)).OrderByDescending(p => p.Value).Take(10))
+        var newWords = words.Where(w => !vocab.ContainsWord(w.Key)).OrderByDescending(p => p.Value).ToList();
+        Console.WriteLine($"Subtitles '{srtFile.FullName}' contains:");
+        Console.WriteLine($"{lines.Count} text lines");
+        Console.WriteLine($"{words.Count} unique words");
+        Console.WriteLine($"{newWords.Count} new words");
+
+        foreach (var pair in newWords)
         {
             var word = pair.Key;
 
             Console.WriteLine($"{word} - {pair.Value}");
 
-            var option = Console.ReadLine();
-            switch (option)
-            {
-                case "a":
-                    vocab.Learned.Add(word);
-                    Console.WriteLine($"added as learned");
-                    break;
-                case "n":
-                    vocab.Names.Add(word);
-                    Console.WriteLine($"added as name");
-                    break;
-                case "t":
-                    vocab.Todo.Add(word);
-                    Console.WriteLine($"added as todo");
-                    break;
-                case "s":
-                    break;
-                default:
-                    Console.WriteLine($"invalid option '{option}'");
-                    break;
-            }
+            var wordAction = Prompt.Select<NewWordAction>($"Select action for new word '{word}'", defaultValue: NewWordAction.Add);
+            if (wordAction == NewWordAction.Add)
+                vocab.Learned.AddWord(word);
+            else if (wordAction == NewWordAction.Todo)
+                vocab.Todo.AddWord(word);
+            else if (wordAction == NewWordAction.Name)
+                vocab.Names.AddWord(word);
+            else if (wordAction == NewWordAction.Break)
+                return;
         }
+    }
 
-        Console.WriteLine($"save vocab:");
-        VocabularyStore.Save(vocab);
+    private enum Mode
+    {
+        [Display(Name = "Add new subtitles file")]
+        AddSubs,
+        [Display(Name = "List todo words")]
+        ListTodo,
+        [Display(Name = "Manage todo words")]
+        ManageTodo,
+        [Display(Name = "Exit")]
+        Exit,
+    }
+
+    private enum NewWordAction
+    {
+        [Display(Name = "Add as learned")]
+        Add,
+        [Display(Name = "Add as todo")]
+        Todo,
+        [Display(Name = "Add as name")]
+        Name,
+        [Display(Name = "Skip")]
+        Skip,
+        [Display(Name = "Break")]
+        Break,
+    }
+
+    private enum TodoWordAction
+    {
+        [Display(Name = "Skip")]
+        Skip,
+        [Display(Name = "Learn")]
+        Learn,
+        [Display(Name = "Break")]
+        Break,
     }
 }
