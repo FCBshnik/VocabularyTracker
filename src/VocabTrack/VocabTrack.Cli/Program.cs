@@ -12,13 +12,12 @@ public static class Program
 
         while (true)
         {
+            Console.WriteLine($"Vocabulary: learned {vocab.Learned.ListWords().Count}, unknown {vocab.Unknown.ListWords().Count}");
             var mode = Prompt.Select<Mode>("Select mode");
             if (mode == Mode.AddSubs)
-                AddNewWords(vocab);
-            else if (mode == Mode.ListTodo)
-                Console.WriteLine(string.Join(Environment.NewLine, vocab.Todo.ListWords()));
-            else if (mode == Mode.ManageTodo)
-                ManageTodo(vocab);
+                AddSubs(vocab);
+            else if (mode == Mode.ListUnknown)
+                ListUnknown(vocab);
             else
                 break;
         }
@@ -26,22 +25,24 @@ public static class Program
         VocabularyStore.Save(vocab);
     }
 
-    private static void ManageTodo(Vocabulary vocab)
+    private static void ListUnknown(Vocabulary vocab)
     {
-        foreach (var word in vocab.Todo.ListWords())
+        while (true)
         {
+            var words = vocab.Unknown.ListWords();
+            var word = Prompt.Select("Select word", words);
             var wordAction = Prompt.Select<TodoWordAction>($"Select action for '{word}'", defaultValue: TodoWordAction.Skip);
             if (wordAction == TodoWordAction.Learn)
             {
-                vocab.Todo.RemoveWord(word);
+                vocab.Unknown.RemoveWord(word);
                 vocab.Learned.AddWord(word);
             }
             if (wordAction == TodoWordAction.Break)
-                return;
+                break;
         }
     }
 
-    private static void AddNewWords(Vocabulary vocab)
+    private static void AddSubs(Vocabulary vocab)
     {
         var srtFiles = new DirectoryInfo("./").EnumerateFiles("*.srt", SearchOption.AllDirectories).ToList();
         var srtFile = Prompt.Select("Select subtitles file from app directory", srtFiles, textSelector: f => f.Name);
@@ -63,14 +64,11 @@ public static class Program
         foreach (var pair in newWords)
         {
             var word = pair.Key;
-
-            Console.WriteLine($"{word} - {pair.Value}");
-
-            var wordAction = Prompt.Select<NewWordAction>($"Select action for new word '{word}'", defaultValue: NewWordAction.Add);
+            var wordAction = Prompt.Select<NewWordAction>($"Select action for new word '{word}' (occurs {pair.Value} times)", defaultValue: NewWordAction.Skip);
             if (wordAction == NewWordAction.Add)
                 vocab.Learned.AddWord(word);
             else if (wordAction == NewWordAction.Todo)
-                vocab.Todo.AddWord(word);
+                vocab.Unknown.AddWord(word);
             else if (wordAction == NewWordAction.Name)
                 vocab.Names.AddWord(word);
             else if (wordAction == NewWordAction.Break)
@@ -82,21 +80,19 @@ public static class Program
     {
         [Display(Name = "Add new subtitles file")]
         AddSubs,
-        [Display(Name = "List todo words")]
-        ListTodo,
-        [Display(Name = "Manage todo words")]
-        ManageTodo,
+        [Display(Name = "List unknown words")]
+        ListUnknown,
         [Display(Name = "Exit")]
         Exit,
     }
 
     private enum NewWordAction
     {
-        [Display(Name = "Add as learned")]
+        [Display(Name = "Add to learned")]
         Add,
-        [Display(Name = "Add as todo")]
+        [Display(Name = "Add to unknown")]
         Todo,
-        [Display(Name = "Add as name")]
+        [Display(Name = "Add to names")]
         Name,
         [Display(Name = "Skip")]
         Skip,

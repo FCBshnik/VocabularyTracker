@@ -11,12 +11,12 @@ namespace VocabTrack.Core
         [JsonPropertyName("names")]
         public NodeModel Names { get; set; } = new NodeModel();
 
-        [JsonPropertyName("todo")]
-        public NodeModel Todo { get; set; } = new NodeModel();
+        [JsonPropertyName("unknown")]
+        public NodeModel Unknown { get; set; } = new NodeModel();
 
         public bool ContainsWord(string word)
         {
-            return Learned.ContainsWord(word) || Names.ContainsWord(word) || Todo.ContainsWord(word);
+            return Learned.ContainsWord(word) || Names.ContainsWord(word) || Unknown.ContainsWord(word);
         }
 
         public class NodeModel : Dictionary<string, NodeModel>

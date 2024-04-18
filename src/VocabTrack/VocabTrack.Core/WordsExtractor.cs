@@ -13,7 +13,7 @@
                 var tokens = line
                     .Split(wordDelimiters)
                     .Select(t => t.Trim().ToLowerInvariant())
-                    .Where(t => t.Length > 1);
+                    .Where(t => t.Length > 1 && t.Any(c => char.IsLetter(c)));
 
                 foreach (var token in tokens)
                 {
