@@ -12,12 +12,12 @@ public static class Program
 
         while (true)
         {
-            Console.WriteLine($"Vocabulary: learned {vocab.Learned.ListWords().Count}, unknown {vocab.Unknown.ListWords().Count}");
+            Console.WriteLine($"Vocabulary: total words {vocab.Words.ListWords().Count}");
             var mode = Prompt.Select<Mode>("Select mode");
             if (mode == Mode.AddSubs)
                 AddSubs(vocab);
-            else if (mode == Mode.ListUnknown)
-                ListUnknown(vocab);
+            else if (mode == Mode.ListWords)
+                ListWords(vocab);
             else
                 break;
         }
@@ -25,20 +25,36 @@ public static class Program
         VocabularyStore.Save(vocab);
     }
 
-    private static void ListUnknown(Vocabulary vocab)
+    private static void ListWords(Vocabulary vocab)
     {
-        while (true)
+        var words = vocab.Words.ListWords();
+        var learnedWordsCount = words.Count(w => w.Value.Note == WordMark.Learned);
+        var namesWordsCount = words.Count(w => w.Value.Note == WordMark.Name);
+        var newWords = words.Where(w => w.Value.Note == null)
+            .OrderByDescending(w => w.Value.Occurrences)
+            .ThenBy(w => w.Key)
+            .ToList();
+
+        Console.WriteLine($"Vocabulary contains words:");
+        Console.WriteLine($"\ttotal {words.Count}");
+        Console.WriteLine($"\tlearned {learnedWordsCount}");
+        Console.WriteLine($"\tnames {namesWordsCount}");
+        Console.WriteLine($"\tnew {newWords.Count}");
+
+        foreach (var pair in newWords)
         {
-            var words = vocab.Unknown.ListWords();
-            var word = Prompt.Select("Select word", words);
-            var wordAction = Prompt.Select<TodoWordAction>($"Select action for '{word}'", defaultValue: TodoWordAction.Skip);
-            if (wordAction == TodoWordAction.Learn)
-            {
-                vocab.Unknown.RemoveWord(word);
-                vocab.Learned.AddWord(word);
-            }
-            if (wordAction == TodoWordAction.Break)
+            var word = pair.Key;
+            var info = pair.Value;
+
+            var wordAction = Prompt.Select<WordAction>($"Select action for '{word}' ({info.Occurrences} occurrences)", defaultValue: WordAction.Skip);
+            if (wordAction == WordAction.Exit)
                 break;
+            if (wordAction == WordAction.Skip)
+                continue;
+            if (wordAction == WordAction.Learn)
+                vocab.Words.SetWordNote(word, WordMark.Learned);
+            else if (wordAction == WordAction.Name)
+                vocab.Words.SetWordNote(word, WordMark.Name);
         }
     }
 
@@ -46,6 +62,7 @@ public static class Program
     {
         var srtFiles = new DirectoryInfo("./").EnumerateFiles("*.srt", SearchOption.AllDirectories).ToList();
         var srtFile = Prompt.Select("Select subtitles file from app directory", srtFiles, textSelector: f => f.Name);
+        var srtName = srtFile.Name;
         if (!srtFile.Exists)
         {
             Console.WriteLine($"File '{srtFile.FullName}' does not exist");
@@ -54,59 +71,56 @@ public static class Program
 
         var subsParser = new SubsParser();
         var lines = subsParser.Parse(srtFile);
-        var words = new WordsExtractor().ExtractWords(lines);
-        var newWords = words.Where(w => !vocab.ContainsWord(w.Key)).OrderByDescending(p => p.Value).ToList();
-        Console.WriteLine($"Subtitles '{srtFile.FullName}' contains:");
-        Console.WriteLine($"{lines.Count} text lines");
-        Console.WriteLine($"{words.Count} unique words");
-        Console.WriteLine($"{newWords.Count} new words");
+        var subsWords = new WordsExtractor().ExtractWords(lines).OrderByDescending(p => p.Value).ThenBy(p => p.Key).ToList();
+        var vocabWords = vocab.Words.ListWords();
 
-        foreach (var pair in newWords)
+        if (!vocab.Subs.ContainsKey(srtName))
         {
-            var word = pair.Key;
-            var wordAction = Prompt.Select<NewWordAction>($"Select action for new word '{word}' (occurs {pair.Value} times)", defaultValue: NewWordAction.Skip);
-            if (wordAction == NewWordAction.Add)
-                vocab.Learned.AddWord(word);
-            else if (wordAction == NewWordAction.Todo)
-                vocab.Unknown.AddWord(word);
-            else if (wordAction == NewWordAction.Name)
-                vocab.Names.AddWord(word);
-            else if (wordAction == NewWordAction.Break)
-                return;
+            var newWords = subsWords.Where(w => !vocabWords.ContainsKey(w.Key)).ToList();
+
+            foreach (var pair in newWords)
+                vocab.Words.AddWord(pair.Key, pair.Value);
+
+            vocab.Subs[srtName] = DateTime.UtcNow.ToString();
+
+            Console.WriteLine($"Subtitles '{srtName}' contains: {lines.Count} lines, {subsWords.Count} words");
+            Console.WriteLine($"Added occurences for {subsWords.Count} unique words");
+            Console.WriteLine($"Added {newWords.Count} new words");
+            Console.WriteLine($"Top 10 new words:");
+            foreach (var word in newWords.OrderByDescending(w => w.Value).Take(10))
+                Console.WriteLine($"\t{word.Key} - {word.Value} occurences");
         }
+        else
+        {
+            Console.WriteLine($"Subtitles '{srtName}' have already been added");
+        }
+    }
+
+    private static class WordMark
+    {
+        public const string Learned = "l";
+        public const string Name = "n";
     }
 
     private enum Mode
     {
         [Display(Name = "Add new subtitles file")]
         AddSubs,
-        [Display(Name = "List unknown words")]
-        ListUnknown,
+        [Display(Name = "List words")]
+        ListWords,
         [Display(Name = "Exit")]
         Exit,
     }
 
-    private enum NewWordAction
-    {
-        [Display(Name = "Add to learned")]
-        Add,
-        [Display(Name = "Add to unknown")]
-        Todo,
-        [Display(Name = "Add to names")]
-        Name,
-        [Display(Name = "Skip")]
-        Skip,
-        [Display(Name = "Break")]
-        Break,
-    }
-
-    private enum TodoWordAction
+    private enum WordAction
     {
         [Display(Name = "Skip")]
         Skip,
-        [Display(Name = "Learn")]
+        [Display(Name = "Mark as learned")]
         Learn,
-        [Display(Name = "Break")]
-        Break,
+        [Display(Name = "Mark as name")]
+        Name,
+        [Display(Name = "Exit")]
+        Exit,
     }
 }

@@ -1,8 +1,10 @@
-﻿namespace VocabTrack.Core
+﻿using System.Text.RegularExpressions;
+
+namespace VocabTrack.Core
 {
     public class WordsExtractor
     {
-        private static readonly char[] wordDelimiters = { ' ', '.', ',', '!', '?' };
+        private static readonly Regex wordRegex = new Regex("[a-zA-Z-`']+", RegexOptions.Compiled);
 
         public Dictionary<string, int> ExtractWords(List<string> lines)
         {
@@ -10,9 +12,8 @@
 
             foreach (var line in lines)
             {
-                var tokens = line
-                    .Split(wordDelimiters)
-                    .Select(t => t.Trim().ToLowerInvariant())
+                var tokens = wordRegex.Matches(line)
+                    .Select(m => m.Value.Trim().ToLowerInvariant())
                     .Where(t => t.Length > 1 && t.Any(c => char.IsLetter(c)));
 
                 foreach (var token in tokens)

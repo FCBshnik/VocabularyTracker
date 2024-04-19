@@ -5,132 +5,118 @@ namespace VocabTrack.Core
 {
     public class Vocabulary
     {
-        [JsonPropertyName("learned")]
-        public NodeModel Learned { get; set; } = new NodeModel();
+        [JsonPropertyName("subs")]
+        public Dictionary<string, string> Subs { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        [JsonPropertyName("names")]
-        public NodeModel Names { get; set; } = new NodeModel();
+        [JsonPropertyName("words")]
+        public NodeModel Words { get; set; } = new NodeModel();
 
-        [JsonPropertyName("unknown")]
-        public NodeModel Unknown { get; set; } = new NodeModel();
-
-        public bool ContainsWord(string word)
+        public class WordInfo
         {
-            return Learned.ContainsWord(word) || Names.ContainsWord(word) || Unknown.ContainsWord(word);
+            public string? Note { get; set; }
+
+            public long Occurrences { get; set; }
         }
 
-        public class NodeModel : Dictionary<string, NodeModel>
+        public class NodeModel : Dictionary<string, NodeModel?>
         {
-            public List<string> ListWords()
+            public Dictionary<string, WordInfo> ListWords()
             {
-                var words = new List<string>();
+                var words = new Dictionary<string, WordInfo>();
                 ListWords(words, new StringBuilder());
                 return words;
             }
 
-            public bool ContainsWord(string word)
+            public void AddWord(string word, int occurrences = 1)
             {
                 var symbols = word.ToLowerInvariant().ToList().Select(s => s.ToString()).ToList();
-                return ContainsWord(symbols, 0);
+                AddWord(symbols, 0, occurrences);
             }
 
-            public void AddWord(string word)
+            public void SetWordNote(string word, string note)
             {
                 var symbols = word.ToLowerInvariant().ToList().Select(s => s.ToString()).ToList();
-                AddWord(symbols, 0);
+                SetWordNote(symbols, 0, note);
             }
 
-            public void RemoveWord(string word)
+            private void SetWordNote(List<string> symbols, int index, string note)
             {
-                var symbols = word.ToLowerInvariant().ToList().Select(s => s.ToString()).ToList();
-                RemoveWord(symbols, 0);
+                var isLast = index == symbols.Count - 1;
+                var symbol = symbols[index];
+
+                if (!TryGetValue(symbol, out var child))
+                    throw new InvalidOperationException($"word {string.Join(string.Empty, symbols)} not found in vocabulary");
+
+                if (isLast)
+                {
+                    var key = child!.Keys.FirstOrDefault(k => k.StartsWith("@"));
+                    if (key != null)
+                        child!.Remove(key);
+                    child!.Add($"@{note}", null);
+                    return;
+                }
+
+                child!.SetWordNote(symbols, index + 1, note);
             }
 
-            private void ListWords(List<string> words, StringBuilder builder)
+            private void ListWords(Dictionary<string, WordInfo> words, StringBuilder builder)
             {
                 foreach (var letter in Keys)
                 {
+                    if (letter.Length > 1)
+                        continue;
+
                     builder.Append(letter);
 
-                    if (char.IsUpper(letter[0]))
-                        words.Add(builder.ToString().ToLowerInvariant());
+                    var occursKey = this[letter]!.Keys.FirstOrDefault(k => k.StartsWith("#"));
+                    if (occursKey != null)
+                    {
+                        words.Add(builder.ToString().ToLowerInvariant(), new WordInfo
+                        {
+                            Note = this[letter]!.Keys.FirstOrDefault(k => k.StartsWith("@"))?.Replace("@", string.Empty),
+                            Occurrences = long.Parse(occursKey.Substring(1))
+                        });
+                    }
 
-                    this[letter].ListWords(words, builder);
+                    this[letter]!.ListWords(words, builder);
 
                     builder.Remove(builder.Length - 1, 1);
                 }
             }
 
-            private bool ContainsWord(List<string> symbols, int index)
-            {
-                if (symbols.Count == index)
-                    return true;
-
-                var isLast = index == symbols.Count - 1;
-                var lower = symbols[index];
-                var upper = lower.ToUpperInvariant();
-
-                if (!TryGetValue(upper, out var child))
-                {
-                    if (!TryGetValue(lower, out child))
-                    {
-                        return false;
-                    }
-                    else
-                    {
-                        if (isLast)
-                            return false;
-                    }
-                }
-
-                return child.ContainsWord(symbols, index + 1);
-            }
-
-            private bool RemoveWord(List<string> symbols, int index)
-            {
-                var isLast = index == symbols.Count - 1;
-                var lower = symbols[index];
-                var upper = lower.ToUpperInvariant();
-
-                if (isLast)
-                    return Remove(upper);
-
-                if (!TryGetValue(lower, out var child) && !TryGetValue(upper, out child))
-                    return false;
-
-                if (!child.RemoveWord(symbols, index + 1))
-                    return false;
-
-                return Remove(lower);
-            }
-
-            private void AddWord(List<string> symbols, int index)
+            private void AddWord(List<string> symbols, int index, int occurrences)
             {
                 if (symbols.Count == index)
                     return;
 
                 var isLast = index == symbols.Count - 1;
-                var lower = symbols[index];
-                var upper = lower.ToUpperInvariant();
+                var symbol = symbols[index];
 
-                if (!TryGetValue(upper, out var child))
+                if (!TryGetValue(symbol, out var child))
                 {
-                    if (!TryGetValue(lower, out child))
+                    child = new NodeModel();
+                    Add(symbol, child);
+                    // add initial occurrences
+                    if (isLast)
+                        child.Add($"#{occurrences}", null);
+                }
+                else if (isLast)
+                {
+                    var key = child!.Keys.FirstOrDefault(k => k.StartsWith("#"));
+                    // add initial occurrences
+                    if (key == null)
                     {
-                        child = new NodeModel();
-                        Add(isLast ? upper : lower, child);
+                        child.Add($"#{occurrences}", null);
                     }
+                    // or increment occurrences
                     else
                     {
-                        if (isLast)
-                        {
-                            Remove(lower);
-                            Add(upper, child);
-                        }
+                        child!.Remove(key);
+                        child!.Add($"#{long.Parse(key.Substring(1)) + occurrences}", null);
                     }
                 }
 
-                child.AddWord(symbols, index + 1);
+                child!.AddWord(symbols, index + 1, occurrences);
             }
         }
     }
