@@ -16,8 +16,10 @@ public static class Program
             var mode = Prompt.Select<Mode>("Select mode");
             if (mode == Mode.AddSubs)
                 AddSubs(vocab);
-            else if (mode == Mode.ListWords)
+            else if (mode == Mode.StudyWords)
                 ListWords(vocab);
+            else if (mode == Mode.ShowStats)
+                ShowStats(vocab);
             else
                 break;
         }
@@ -25,7 +27,7 @@ public static class Program
         VocabularyStore.Save(vocab);
     }
 
-    private static void ListWords(Vocabulary vocab)
+    private static void ShowStats(Vocabulary vocab)
     {
         var words = vocab.Words.ListWords();
         var learnedWordsCount = words.Count(w => w.Value.Note == WordMark.Learned);
@@ -40,6 +42,22 @@ public static class Program
         Console.WriteLine($"\tlearned {learnedWordsCount}");
         Console.WriteLine($"\tnames {namesWordsCount}");
         Console.WriteLine($"\tnew {newWords.Count}");
+
+        Console.WriteLine($"Top 20 most used words:");
+        var mostUsed = words.OrderByDescending(w => w.Value.Occurrences).Take(20).ToList();
+        foreach(var word in mostUsed)
+            Console.WriteLine($"\t'{word.Key} - {word.Value.Occurrences} occurrences");
+    }
+
+    private static void ListWords(Vocabulary vocab)
+    {
+        var words = vocab.Words.ListWords();
+        var newWords = words.Where(w => w.Value.Note == null)
+            .OrderByDescending(w => w.Value.Occurrences)
+            .ThenBy(w => w.Key)
+            .ToList();
+
+        Console.WriteLine($"Vocabulary contains {newWords.Count} words to study");
 
         foreach (var pair in newWords)
         {
@@ -77,15 +95,17 @@ public static class Program
         if (!vocab.Subs.ContainsKey(srtName))
         {
             var newWords = subsWords.Where(w => !vocabWords.ContainsKey(w.Key)).ToList();
+            var existingWordsCount = subsWords.Count(w => vocabWords.ContainsKey(w.Key));
 
-            foreach (var pair in newWords)
-                vocab.Words.AddWord(pair.Key, pair.Value);
+            foreach (var pair in subsWords)
+                vocab.Words.IncrementWordOccurrences(pair.Key, pair.Value);
 
             vocab.Subs[srtName] = DateTime.UtcNow.ToString();
 
             Console.WriteLine($"Subtitles '{srtName}' contains: {lines.Count} lines, {subsWords.Count} words");
             Console.WriteLine($"Added occurences for {subsWords.Count} unique words");
             Console.WriteLine($"Added {newWords.Count} new words");
+            Console.WriteLine($"Skipped {existingWordsCount} already added words");
             Console.WriteLine($"Top 10 new words:");
             foreach (var word in newWords.OrderByDescending(w => w.Value).Take(10))
                 Console.WriteLine($"\t{word.Key} - {word.Value} occurences");
@@ -106,8 +126,10 @@ public static class Program
     {
         [Display(Name = "Add new subtitles file")]
         AddSubs,
-        [Display(Name = "List words")]
-        ListWords,
+        [Display(Name = "Study words")]
+        StudyWords,
+        [Display(Name = "Show stats")]
+        ShowStats,
         [Display(Name = "Exit")]
         Exit,
     }

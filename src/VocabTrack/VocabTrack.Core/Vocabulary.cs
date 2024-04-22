@@ -27,7 +27,7 @@ namespace VocabTrack.Core
                 return words;
             }
 
-            public void AddWord(string word, int occurrences = 1)
+            public void IncrementWordOccurrences(string word, int occurrences = 1)
             {
                 var symbols = word.ToLowerInvariant().ToList().Select(s => s.ToString()).ToList();
                 AddWord(symbols, 0, occurrences);
