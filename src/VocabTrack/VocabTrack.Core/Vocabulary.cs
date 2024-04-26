@@ -16,6 +16,8 @@ namespace VocabTrack.Core
             public string? Note { get; set; }
 
             public long Occurrences { get; set; }
+
+            public DateTime UpdatedAt { get; set; }
         }
 
         public class NodeModel : Dictionary<string, NodeModel?>
@@ -27,10 +29,10 @@ namespace VocabTrack.Core
                 return words;
             }
 
-            public void IncrementWordOccurrences(string word, int occurrences = 1)
+            public void IncrementWordOccurrences(string word, DateTime time, int occurrences = 1)
             {
                 var symbols = word.ToLowerInvariant().ToList().Select(s => s.ToString()).ToList();
-                AddWord(symbols, 0, occurrences);
+                AddWord(symbols, 0, time, occurrences);
             }
 
             public void SetWordNote(string word, string note)
@@ -71,10 +73,12 @@ namespace VocabTrack.Core
                     var occursKey = this[letter]!.Keys.FirstOrDefault(k => k.StartsWith("#"));
                     if (occursKey != null)
                     {
+                        var timeKey = this[letter]!.Keys.FirstOrDefault(k => k.Length > 2 && k.StartsWith("t"));
                         words.Add(builder.ToString().ToLowerInvariant(), new WordInfo
                         {
-                            Note = this[letter]!.Keys.FirstOrDefault(k => k.StartsWith("@"))?.Replace("@", string.Empty),
-                            Occurrences = long.Parse(occursKey.Substring(1))
+                            Note = this[letter]!.Keys.FirstOrDefault(k => k.StartsWith("@"))?.Trim('@'),
+                            Occurrences = long.Parse(occursKey.Trim('#')),
+                            UpdatedAt = timeKey != null ? DateTime.Parse(timeKey.Trim('t')) : DateTime.MinValue,
                         });
                     }
 
@@ -84,7 +88,7 @@ namespace VocabTrack.Core
                 }
             }
 
-            private void AddWord(List<string> symbols, int index, int occurrences)
+            private void AddWord(List<string> symbols, int index, DateTime time, int occurrences)
             {
                 if (symbols.Count == index)
                     return;
@@ -96,27 +100,37 @@ namespace VocabTrack.Core
                 {
                     child = new NodeModel();
                     Add(symbol, child);
-                    // add initial occurrences
-                    if (isLast)
-                        child.Add($"#{occurrences}", null);
                 }
-                else if (isLast)
+
+                if (isLast)
                 {
-                    var key = child!.Keys.FirstOrDefault(k => k.StartsWith("#"));
+                    var occursKey = child!.Keys.FirstOrDefault(k => k.StartsWith("#"));
+                    var timeKey = child!.Keys.FirstOrDefault(k => k.Length > 1 && k.StartsWith("t"));
+
+                    if (timeKey == null)
+                    {
+                        child.Add($"t{time:s}", null);
+                    }
+                    else
+                    {
+                        child!.Remove(timeKey);
+                        child!.Add($"t{time:s}", null);
+                    }
+
                     // add initial occurrences
-                    if (key == null)
+                    if (occursKey == null)
                     {
                         child.Add($"#{occurrences}", null);
                     }
                     // or increment occurrences
                     else
                     {
-                        child!.Remove(key);
-                        child!.Add($"#{long.Parse(key.Substring(1)) + occurrences}", null);
+                        child!.Remove(occursKey);
+                        child!.Add($"#{long.Parse(occursKey.Substring(1)) + occurrences}", null);
                     }
                 }
 
-                child!.AddWord(symbols, index + 1, occurrences);
+                child!.AddWord(symbols, index + 1, time, occurrences);
             }
         }
     }

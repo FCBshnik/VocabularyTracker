@@ -17,7 +17,7 @@ public static class Program
             if (mode == Mode.AddSubs)
                 AddSubs(vocab);
             else if (mode == Mode.StudyWords)
-                ListWords(vocab);
+                StudyWords(vocab);
             else if (mode == Mode.ShowStats)
                 ShowStats(vocab);
             else
@@ -49,15 +49,20 @@ public static class Program
             Console.WriteLine($"\t'{word.Key} - {word.Value.Occurrences} occurrences");
     }
 
-    private static void ListWords(Vocabulary vocab)
+    private static void StudyWords(Vocabulary vocab)
     {
         var words = vocab.Words.ListWords();
         var newWords = words.Where(w => w.Value.Note == null)
-            .OrderByDescending(w => w.Value.Occurrences)
+            .OrderByDescending(w => w.Value.UpdatedAt)
+            .ThenByDescending(w => w.Value.Occurrences)
             .ThenBy(w => w.Key)
             .ToList();
 
         Console.WriteLine($"Vocabulary contains {newWords.Count} words to study");
+
+        Console.WriteLine($"Top 10 latest words to study:");
+        foreach (var word in newWords.Take(10))
+            Console.WriteLine($"\t'{word.Key} - {word.Value.Occurrences} occurrences");
 
         foreach (var pair in newWords)
         {
@@ -65,7 +70,7 @@ public static class Program
             var info = pair.Value;
 
             var wordAction = Prompt.Select<WordAction>($"Select action for '{word}' ({info.Occurrences} occurrences)", defaultValue: WordAction.Skip);
-            if (wordAction == WordAction.Exit)
+            if (wordAction == WordAction.Back)
                 break;
             if (wordAction == WordAction.Skip)
                 continue;
@@ -87,6 +92,7 @@ public static class Program
             return;
         }
 
+        var time = DateTime.UtcNow;
         var subsParser = new SubsParser();
         var lines = subsParser.Parse(srtFile);
         var subsWords = new WordsExtractor().ExtractWords(lines).OrderByDescending(p => p.Value).ThenBy(p => p.Key).ToList();
@@ -98,7 +104,7 @@ public static class Program
             var existingWordsCount = subsWords.Count(w => vocabWords.ContainsKey(w.Key));
 
             foreach (var pair in subsWords)
-                vocab.Words.IncrementWordOccurrences(pair.Key, pair.Value);
+                vocab.Words.IncrementWordOccurrences(pair.Key, time, pair.Value);
 
             vocab.Subs[srtName] = DateTime.UtcNow.ToString();
 
@@ -142,7 +148,7 @@ public static class Program
         Learn,
         [Display(Name = "Mark as name")]
         Name,
-        [Display(Name = "Exit")]
-        Exit,
+        [Display(Name = "Back")]
+        Back,
     }
 }
