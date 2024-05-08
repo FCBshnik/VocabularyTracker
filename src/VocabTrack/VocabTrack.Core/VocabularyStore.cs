@@ -11,13 +11,14 @@ namespace VocabTrack.Core
             var file = new FileInfo(filePath);
             if (!file.Exists)
             {
-                Console.WriteLine($"new vocabulary was created at {file.FullName}");
+                Console.WriteLine($"New vocabulary was created at {file.FullName}");
                 var vocab = new Vocabulary();
                 Save(vocab);
                 return vocab;
             }
 
             var json = File.ReadAllText(file.FullName);
+            Console.WriteLine($"Vocabulary loaded from {file.FullName}");
             return JsonSerializer.Deserialize<Vocabulary>(json)!;
         }
 

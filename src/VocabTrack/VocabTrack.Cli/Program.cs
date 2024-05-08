@@ -26,11 +26,11 @@ public static class Program
 
     private enum StudyMode
     {
-        [Display(Name = "Most used words from all subtitles")]
+        [Display(Name = "Most used new words from all subtitles")]
         MostUsed,
-        [Display(Name = "Most used words from latest added subtitles")]
+        [Display(Name = "Most used new words in latest added subtitles")]
         MostUsedInLatestSubs,
-        [Display(Name = "Most used words occured in latest added subtitles")]
+        [Display(Name = "Most used new words occurred in latest added subtitles")]
         MosetUsedFromLatestSubs,
     }
 
@@ -38,9 +38,9 @@ public static class Program
     {
         [Display(Name = "Skip")]
         Skip,
-        [Display(Name = "Mark as learned")]
+        [Display(Name = "Save as learned")]
         Learn,
-        [Display(Name = "Mark as name")]
+        [Display(Name = "Save as name")]
         Name,
         [Display(Name = "Back")]
         Back,
@@ -131,8 +131,10 @@ public static class Program
 
     private static void AddSubs(Vocabulary vocab)
     {
-        var srtFiles = new DirectoryInfo("./").EnumerateFiles("*.srt", SearchOption.AllDirectories).ToList();
-        var srtFile = Prompt.Select("Select subtitles file from app directory", srtFiles, textSelector: f => f.Name);
+        var srtDir = new DirectoryInfo("./");
+        var srtFiles = srtDir.EnumerateFiles("*.srt", SearchOption.AllDirectories).ToList();
+        Console.WriteLine($"Found {srtFiles.Count} subtitles files at '{srtDir.FullName}'");
+        var srtFile = Prompt.Select("Select subtitles file from working directory", srtFiles, textSelector: f => f.Name);
         var srtName = srtFile.Name;
         if (!srtFile.Exists)
         {
@@ -157,12 +159,12 @@ public static class Program
             vocab.Subs[srtName] = DateTime.UtcNow.ToString();
 
             Console.WriteLine($"Subtitles '{srtName}' contains: {lines.Count} lines, {subsWords.Count} words");
-            Console.WriteLine($"Added occurences for {subsWords.Count} unique words");
+            Console.WriteLine($"Added occurrences for {subsWords.Count} unique words");
             Console.WriteLine($"Added {newWords.Count} new words");
             Console.WriteLine($"Skipped {existingWordsCount} already added words");
             Console.WriteLine($"Top 10 new words:");
             foreach (var word in newWords.OrderByDescending(w => w.Value).Take(10))
-                Console.WriteLine($"\t{word.Key} - {word.Value} occurences");
+                Console.WriteLine($"\t{word.Key} - {word.Value} occurrences");
         }
         else
         {
