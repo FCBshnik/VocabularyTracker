@@ -17,7 +17,11 @@ namespace VocabTrack.Core
 
             public long Occurrences { get; set; }
 
+            public long LatestOccurrences { get; set; }
+
             public DateTime UpdatedAt { get; set; }
+
+            public bool IsNew => Note == null;
         }
 
         public class NodeModel : Dictionary<string, NodeModel?>
@@ -71,6 +75,8 @@ namespace VocabTrack.Core
                     builder.Append(letter);
 
                     var occursKey = this[letter]!.Keys.FirstOrDefault(k => k.StartsWith("#"));
+                    var latestOccursKey = this[letter]!.Keys.FirstOrDefault(k => k.Length > 1 && k.StartsWith("l"));
+
                     if (occursKey != null)
                     {
                         var timeKey = this[letter]!.Keys.FirstOrDefault(k => k.Length > 2 && k.StartsWith("t"));
@@ -78,6 +84,7 @@ namespace VocabTrack.Core
                         {
                             Note = this[letter]!.Keys.FirstOrDefault(k => k.StartsWith("@"))?.Trim('@'),
                             Occurrences = long.Parse(occursKey.Trim('#')),
+                            LatestOccurrences = latestOccursKey != null ? long.Parse(latestOccursKey.Trim('l')) : 0,
                             UpdatedAt = timeKey != null ? DateTime.Parse(timeKey.Trim('t')) : DateTime.MinValue,
                         });
                     }
@@ -104,18 +111,17 @@ namespace VocabTrack.Core
 
                 if (isLast)
                 {
-                    var occursKey = child!.Keys.FirstOrDefault(k => k.StartsWith("#"));
+                    var occursKey = child!.Keys.FirstOrDefault(k => k.Length > 1 && k.StartsWith("#"));
+                    var latestOccursKey = child!.Keys.FirstOrDefault(k => k.Length > 1 && k.StartsWith("l"));
                     var timeKey = child!.Keys.FirstOrDefault(k => k.Length > 1 && k.StartsWith("t"));
 
-                    if (timeKey == null)
-                    {
-                        child.Add($"t{time:s}", null);
-                    }
-                    else
-                    {
+                    if (timeKey != null)
                         child!.Remove(timeKey);
-                        child!.Add($"t{time:s}", null);
-                    }
+                    child!.Add($"t{time:s}", null);
+
+                    if (latestOccursKey != null)
+                        child!.Remove(latestOccursKey);
+                    child.Add($"l{occurrences}", null);
 
                     // add initial occurrences
                     if (occursKey == null)

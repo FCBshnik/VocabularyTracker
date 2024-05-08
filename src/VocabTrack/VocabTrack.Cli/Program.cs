@@ -6,6 +6,46 @@ namespace VocabTrack.Cli;
 
 public static class Program
 {
+    private static class WordMark
+    {
+        public const string Learned = "l";
+        public const string Name = "n";
+    }
+
+    private enum Mode
+    {
+        [Display(Name = "Add new subtitles file")]
+        AddSubs,
+        [Display(Name = "Study words")]
+        StudyWords,
+        [Display(Name = "Show stats")]
+        ShowStats,
+        [Display(Name = "Exit")]
+        Exit,
+    }
+
+    private enum StudyMode
+    {
+        [Display(Name = "Most used words from all subtitles")]
+        MostUsed,
+        [Display(Name = "Most used words from latest added subtitles")]
+        MostUsedInLatestSubs,
+        [Display(Name = "Most used words occured in latest added subtitles")]
+        MosetUsedFromLatestSubs,
+    }
+
+    private enum WordAction
+    {
+        [Display(Name = "Skip")]
+        Skip,
+        [Display(Name = "Mark as learned")]
+        Learn,
+        [Display(Name = "Mark as name")]
+        Name,
+        [Display(Name = "Back")]
+        Back,
+    }
+
     public static void Main()
     {
         var vocab = VocabularyStore.Load();
@@ -32,10 +72,7 @@ public static class Program
         var words = vocab.Words.ListWords();
         var learnedWordsCount = words.Count(w => w.Value.Note == WordMark.Learned);
         var namesWordsCount = words.Count(w => w.Value.Note == WordMark.Name);
-        var newWords = words.Where(w => w.Value.Note == null)
-            .OrderByDescending(w => w.Value.Occurrences)
-            .ThenBy(w => w.Key)
-            .ToList();
+        var newWords = words.Where(w => w.Value.Note == null).ToList();
 
         Console.WriteLine($"Vocabulary contains words:");
         Console.WriteLine($"\ttotal {words.Count}");
@@ -44,32 +81,43 @@ public static class Program
         Console.WriteLine($"\tnew {newWords.Count}");
 
         Console.WriteLine($"Top 20 most used words:");
-        var mostUsed = words.OrderByDescending(w => w.Value.Occurrences).Take(20).ToList();
-        foreach(var word in mostUsed)
+        foreach(var word in words.OrderByDescending(w => w.Value.Occurrences).ThenBy(w => w.Key).Take(20))
+            Console.WriteLine($"\t'{word.Key} - {word.Value.Occurrences} occurrences");
+
+        Console.WriteLine($"Top 20 most used new words:");
+        foreach (var word in newWords.OrderByDescending(w => w.Value.Occurrences).ThenBy(w => w.Key).Take(20))
+            Console.WriteLine($"\t'{word.Key} - {word.Value.Occurrences} occurrences");
+
+        Console.WriteLine($"Top 20 latest new words:");
+        foreach (var word in newWords.OrderByDescending(w => w.Value.UpdatedAt).ThenByDescending(w => w.Value.Occurrences).ThenBy(w => w.Key).Take(20))
             Console.WriteLine($"\t'{word.Key} - {word.Value.Occurrences} occurrences");
     }
 
     private static void StudyWords(Vocabulary vocab)
     {
         var words = vocab.Words.ListWords();
-        var newWords = words.Where(w => w.Value.Note == null)
-            .OrderByDescending(w => w.Value.UpdatedAt)
-            .ThenByDescending(w => w.Value.Occurrences)
-            .ThenBy(w => w.Key)
-            .ToList();
+        var newWords = words.Where(w => w.Value.IsNew).ToList();
 
         Console.WriteLine($"Vocabulary contains {newWords.Count} words to study");
 
+        var mode = Prompt.Select<StudyMode>("Select study mode");
+        if (mode == StudyMode.MostUsed)
+            newWords = newWords.OrderByDescending(w => w.Value.Occurrences).ThenBy(w => w.Key).ToList();
+        if (mode == StudyMode.MostUsedInLatestSubs)
+            newWords = newWords.OrderByDescending(w => w.Value.UpdatedAt).ThenByDescending(w => w.Value.LatestOccurrences).ThenBy(w => w.Key).ToList();
+        if (mode == StudyMode.MosetUsedFromLatestSubs)
+            newWords = newWords.OrderByDescending(w => w.Value.UpdatedAt).ThenByDescending(w => w.Value.Occurrences).ThenBy(w => w.Key).ToList();
+
         Console.WriteLine($"Top 10 latest words to study:");
         foreach (var word in newWords.Take(10))
-            Console.WriteLine($"\t'{word.Key} - {word.Value.Occurrences} occurrences");
+            Console.WriteLine($"\t'{word.Key} - {word.Value.Occurrences} occurrences ({word.Value.LatestOccurrences} in latest subs)");
 
         foreach (var pair in newWords)
         {
             var word = pair.Key;
             var info = pair.Value;
 
-            var wordAction = Prompt.Select<WordAction>($"Select action for '{word}' ({info.Occurrences} occurrences)", defaultValue: WordAction.Skip);
+            var wordAction = Prompt.Select<WordAction>($"Select action for '{word}' ({info.Occurrences} occurrences, {info.LatestOccurrences} occurrences in latest subs)", defaultValue: WordAction.Skip);
             if (wordAction == WordAction.Back)
                 break;
             if (wordAction == WordAction.Skip)
@@ -120,35 +168,5 @@ public static class Program
         {
             Console.WriteLine($"Subtitles '{srtName}' have already been added");
         }
-    }
-
-    private static class WordMark
-    {
-        public const string Learned = "l";
-        public const string Name = "n";
-    }
-
-    private enum Mode
-    {
-        [Display(Name = "Add new subtitles file")]
-        AddSubs,
-        [Display(Name = "Study words")]
-        StudyWords,
-        [Display(Name = "Show stats")]
-        ShowStats,
-        [Display(Name = "Exit")]
-        Exit,
-    }
-
-    private enum WordAction
-    {
-        [Display(Name = "Skip")]
-        Skip,
-        [Display(Name = "Mark as learned")]
-        Learn,
-        [Display(Name = "Mark as name")]
-        Name,
-        [Display(Name = "Back")]
-        Back,
     }
 }
