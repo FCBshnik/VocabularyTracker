@@ -13,7 +13,7 @@ namespace VocabTrack.Core
             foreach (var line in lines)
             {
                 var tokens = wordRegex.Matches(line)
-                    .Select(m => m.Value.Trim().ToLowerInvariant())
+                    .Select(m => m.Value.Trim(' ', '-', '`', '\'').ToLowerInvariant())
                     .Where(t => t.Length > 1 && t.Any(c => char.IsLetter(c)));
 
                 foreach (var token in tokens)
